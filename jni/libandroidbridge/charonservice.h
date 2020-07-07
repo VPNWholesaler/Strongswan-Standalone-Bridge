@@ -74,6 +74,8 @@ enum android_imc_state_t {
  */
 struct charonservice_t {
 
+	void (*check_and_update_status)(charonservice_t *this);
+
 	/**
 	 * Update the status in the Java domain (UI)
 	 *

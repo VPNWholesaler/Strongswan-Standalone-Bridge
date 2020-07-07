@@ -240,6 +240,19 @@ int run(char* remote, char* socket_path, char* logfile) {
            builder->set_needok_result(builder, next_command.param1, next_command.fd);
            //pthread_cond_signal(&condition_cond);
            pthread_mutex_unlock(&lock);
+      } else if (strcmp(next_command.command, "state") == 0) {
+          u_int count = charon->controller->get_count(charon->controller);
+          u_int half_open = charon->controller->get_half_open_count(charon->controller, NULL, TRUE);
+          if (half_open > 0) {
+              builder->update_status(builder, "CONNECTING");
+          } else {
+              if (count > 0) {
+                  builder->update_status(builder, "CONNECTED");
+              } else {
+                  builder->update_status(builder, "EXITING");
+              }
+          }
+
       }
 
   }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Webistics Holdings Ltd.  
+ * Copyright (C) 2020 Webistics Holdings Ltd.
  * Copyright (C) 2012-2013 Tobias Brunner
  * Copyright (C) 2012 Giuliano Grassi
  * Copyright (C) 2012 Ralf Sager
@@ -149,6 +149,40 @@ static void dbg_android(debug_t group, level_t level, char *fmt, ...)
 								sgroup, current);
 			current = next;
 		}
+	}
+}
+
+METHOD(charonservice_t, check_and_update_status, void, private_charonservice_t *this)
+{
+	u_int connected = 0;
+	u_int connecting = 0;
+	ike_sa_t *ike_sa;
+	enumerator_t *enumerator;
+
+	enumerator = charon->ike_sa_manager->create_enumerator(
+												charon->ike_sa_manager, TRUE);
+	while (enumerator->enumerate(enumerator, &ike_sa))
+	{
+		ike_sa_state_t state = ike_sa->get_state(ike_sa);
+		if (state == IKE_ESTABLISHED) {
+				connected += 1;
+		} else {
+				connecting += 1;
+		}
+
+	}
+/*
+  count = charon->ike_sa_manager->get_count(charon->ike_sa_manager);
+	half_open = charon->ike_sa_manager->get_half_open_count(charon->ike_sa_manager, NULL);
+*/
+	if (connecting > 0) {
+			this->builder->update_status(this->builder, "CONNECTING");
+	} else {
+			if (connected > 0) {
+					this->builder->update_status(this->builder, "CONNECTED");
+			} else {
+					this->builder->update_status(this->builder, "EXITING");
+			}
 	}
 }
 
@@ -305,34 +339,6 @@ METHOD(charonservice_t, bypass_socket, bool,
 								   this);
 	return TRUE;
 }
-
-/**
- * Converts the given Java array of byte arrays (byte[][]) to a linked list
- * of chunk_t objects.
- */
-static linked_list_t *convert_array_of_byte_arrays(JNIEnv *env,
-												   jobjectArray jarray)
-{
-	linked_list_t *list;
-	jsize i;
-
-	list = linked_list_create();
-	for (i = 0; i < (*env)->GetArrayLength(env, jarray); ++i)
-	{
-		chunk_t *chunk;
-		jbyteArray jbytearray;
-
-		chunk = malloc_thing(chunk_t);
-		list->insert_last(list, chunk);
-
-		jbytearray = (*env)->GetObjectArrayElement(env, jarray, i);
-		*chunk = chunk_alloc((*env)->GetArrayLength(env, jbytearray));
-		(*env)->GetByteArrayRegion(env, jbytearray, 0, chunk->len, chunk->ptr);
-		(*env)->DeleteLocalRef(env, jbytearray);
-	}
-	return list;
-}
-
 
 void add_certificate_to_list(linked_list_t* list, char* cert)
 {
@@ -682,6 +688,7 @@ static void charonservice_init(vpnservice_builder_t *builder, bool byod)
 			.get_user_certificate = _get_user_certificate,
 			.get_user_key = _get_user_key,
 			.get_vpnservice_builder = _get_vpnservice_builder,
+			.check_and_update_status = _check_and_update_status,
 			//.get_network_manager = _get_network_manager,
 		},
 		.attr = android_attr_create(),
